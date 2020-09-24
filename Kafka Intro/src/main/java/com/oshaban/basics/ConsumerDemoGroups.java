@@ -1,4 +1,4 @@
-package com.oshaban;
+package com.oshaban.basics;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
