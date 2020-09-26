@@ -1,5 +1,7 @@
 package com.oshaban;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -49,14 +51,18 @@ public class ElasticSearchConsumer {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100L));
 
             for (ConsumerRecord<String, String> record : records) {
-                // Insert data into elastic search
+                // Twitter feed specific id
+                String tweetId = extractIdFromTweet(record.value());
 
-                IndexRequest indexRequest = new IndexRequest("twitter").source(record.value(), XContentType.JSON);
+                // Insert data into ElasticSearch
+                IndexRequest indexRequest = new IndexRequest("twitter")
+                        .source(record.value(), XContentType.JSON);
+                indexRequest.id(tweetId); // Sets a unique id for the ElasticSearch request, to ensure insertion is idempotent
 
                 IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                String id = indexResponse.getId();
+                String elasticSearchId = indexResponse.getId();
 
-                log.info(id);
+                log.info(elasticSearchId);
 
             }
         }
@@ -87,6 +93,10 @@ public class ElasticSearchConsumer {
         consumer.subscribe(topics);
 
         return consumer;
+    }
+
+    private static String extractIdFromTweet(String tweetJson) {
+        return JsonParser.parseString(tweetJson).getAsJsonObject().get("id_str").getAsString();
     }
 
 
