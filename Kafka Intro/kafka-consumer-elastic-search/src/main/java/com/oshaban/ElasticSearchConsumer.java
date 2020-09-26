@@ -26,23 +26,10 @@ public class ElasticSearchConsumer {
     private static final String USERNAME = System.getenv("ELASTICSEARCH_USERNAME");
     private static final String PASSWORD = System.getenv("ELASTICSEARCH_PASSWORD");
 
-    public static RestHighLevelClient createElasticSearchClient() {
-        final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(AuthScope.ANY,
-                new UsernamePasswordCredentials(USERNAME, PASSWORD));
-
-        RestClientBuilder builder = RestClient.builder(
-                new HttpHost(HOST_NAME, 443, "https"))
-                .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
-
-        return new RestHighLevelClient(builder);
-    }
-
     public static void main(String[] args) throws IOException {
         RestHighLevelClient client = createElasticSearchClient();
 
         // test inserting data
-
         String json = "{\"foo1\": \"client1\"}";
         IndexRequest indexRequest = new IndexRequest("twitter").source(json, XContentType.JSON);
 
@@ -54,5 +41,18 @@ public class ElasticSearchConsumer {
         client.close();
 
     }
+
+    private static RestHighLevelClient createElasticSearchClient() {
+        final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(AuthScope.ANY,
+                new UsernamePasswordCredentials(USERNAME, PASSWORD));
+
+        RestClientBuilder builder = RestClient.builder(
+                new HttpHost(HOST_NAME, 443, "https"))
+                .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
+
+        return new RestHighLevelClient(builder);
+    }
+
 
 }
