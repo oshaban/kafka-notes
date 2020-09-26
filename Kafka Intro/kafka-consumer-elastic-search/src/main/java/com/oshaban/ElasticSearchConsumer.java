@@ -11,8 +11,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -49,22 +50,34 @@ public class ElasticSearchConsumer {
 
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100L));
 
+            int recordCount = records.count();
+
             log.info("Recieved {} records", records.count());
+
+            BulkRequest bulkRequest = new BulkRequest();
+
             for (ConsumerRecord<String, String> record : records) {
                 // Twitter feed specific id
                 String tweetId = extractIdFromTweet(record.value());
 
-                // Insert data into ElasticSearch
-                IndexRequest indexRequest = new IndexRequest("twitter")
-                        .source(record.value(), XContentType.JSON);
-                indexRequest.id(tweetId); // Sets a unique id for the ElasticSearch request, to ensure insertion is idempotent
+                if (tweetId == null) {
+                    log.warn("Skipping bad data: {}", record.value());
+                } else {
+                    // Insert data into ElasticSearch
+                    IndexRequest indexRequest = new IndexRequest("twitter")
+                            .source(record.value(), XContentType.JSON);
+                    indexRequest.id(tweetId); // Sets a unique id for the ElasticSearch request, to ensure insertion is idempotent
 
-                IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                String elasticSearchId = indexResponse.getId();
-
-                log.info(elasticSearchId);
-
+                    // Add ElasticSearch record to a bulk request
+                    bulkRequest.add(indexRequest);
+                }
             }
+
+            if (recordCount > 0) {
+                // Bulk insert into ElasticSearch
+                BulkResponse bulkItemResponses = client.bulk(bulkRequest, RequestOptions.DEFAULT);
+            }
+
             log.info("Committing the offsets...");
             consumer.commitSync();
             log.info("Offsets have been committed");
@@ -100,8 +113,11 @@ public class ElasticSearchConsumer {
     }
 
     private static String extractIdFromTweet(String tweetJson) {
-        return JsonParser.parseString(tweetJson).getAsJsonObject().get("id_str").getAsString();
+        try {
+            return JsonParser.parseString(tweetJson).getAsJsonObject().get("id_str").getAsString();
+        } catch (NullPointerException e) {
+            return null;
+        }
     }
-
 
 }
