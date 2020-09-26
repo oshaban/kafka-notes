@@ -1,6 +1,5 @@
 package com.oshaban;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -50,6 +49,7 @@ public class ElasticSearchConsumer {
 
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100L));
 
+            log.info("Recieved {} records", records.count());
             for (ConsumerRecord<String, String> record : records) {
                 // Twitter feed specific id
                 String tweetId = extractIdFromTweet(record.value());
@@ -65,6 +65,9 @@ public class ElasticSearchConsumer {
                 log.info(elasticSearchId);
 
             }
+            log.info("Committing the offsets...");
+            consumer.commitSync();
+            log.info("Offsets have been committed");
         }
 
     }
@@ -88,6 +91,7 @@ public class ElasticSearchConsumer {
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, GROUPID);
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"); // Disable auto-commit of offsets
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties);
         consumer.subscribe(topics);
